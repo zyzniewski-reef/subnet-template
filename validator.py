@@ -5,7 +5,6 @@ import traceback
 import bittensor as bt
 
 from protocol import Dummy
-from substrateinterface import SubstrateInterface
 
 
 class Validator:
@@ -13,15 +12,12 @@ class Validator:
         self.config = self.get_config()
         self.setup_logging()
         self.setup_bittensor_objects()
-        self.last_update = 0
         self.my_uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
         self.scores = [1.0] * len(self.metagraph.S)
-        self.last_update = 0
-        self.current_block = 0
-        self.tempo = self.node_query('SubtensorModule', 'Tempo', [self.config.netuid])
+        self.last_update = self.subtensor.blocks_since_last_update(self.config.netuid, self.my_uid)
+        self.tempo = self.subtensor.tempo(self.config.netuid)
         self.moving_avg_scores = [1.0] * len(self.metagraph.S)
         self.alpha = 0.1
-        self.node = SubstrateInterface(url=self.config.subtensor.chain_endpoint)
 
     def get_config(self):
         # Set up the configuration parser.
@@ -92,17 +88,6 @@ class Validator:
         self.scores = [1.0] * len(self.metagraph.S)
         bt.logging.info(f"Weights: {self.scores}")
 
-    def node_query(self, module, method, params):
-        try:
-            result = self.node.query(module, method, params).value
-
-        except Exception:
-            # reinitilize node
-            self.node = SubstrateInterface(url=self.config.subtensor.chain_endpoint)
-            result = self.node.query(module, method, params).value
-        
-        return result
-
     def run(self):
         # The Main Validation Loop.
         bt.logging.info("Starting validator loop.")
@@ -130,9 +115,7 @@ class Validator:
                     self.moving_avg_scores[i] = (1 - self.alpha) * self.moving_avg_scores[i] + self.alpha * current_score
 
                 bt.logging.info(f"Moving Average Scores: {self.moving_avg_scores}")
-
-                self.current_block = self.node_query('System', 'Number', [])
-                self.last_update = self.current_block - self.node_query('SubtensorModule', 'LastUpdate', [self.config.netuid])[self.my_uid]
+                self.last_update = self.subtensor.blocks_since_last_update(self.config.netuid, self.my_uid)
 
                 # set weights once every tempo + 1
                 if self.last_update > self.tempo + 1:
