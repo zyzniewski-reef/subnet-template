@@ -44,16 +44,14 @@ class Validator:
         # Parse the config.
         config = bt.config(parser)
         # Set up logging directory.
-
-        logging_path = "{}/{}/{}/netuid{}/{}".format(
-            config.logging.logging_dir,
-            config.wallet.name,
-            config.wallet.hotkey_str,
-            config.netuid,
-            "validator",
+        config.full_path = os.path.expanduser(
+            "{}/{}/{}/netuid{}/validator".format(
+                config.logging.logging_dir,
+                config.wallet.name,
+                config.wallet.hotkey_str,
+                config.netuid,
+            )
         )
-        config.full_path = os.path.expanduser(logging_path)
-
         # Ensure the logging directory exists.
         os.makedirs(config.full_path, exist_ok=True)
         return config
@@ -89,7 +87,7 @@ class Validator:
         # Connect the validator to the network.
         if self.wallet.hotkey.ss58_address not in self.metagraph.hotkeys:
             bt.logging.error(
-                f"Your validator: {self.wallet} is not registered to chain connection: {self.subtensor} \nRun 'btcli register' and try again."
+                f"\nYour validator: {self.wallet} is not registered to chain connection: {self.subtensor} \nRun 'btcli register' and try again."
             )
             exit()
         else:
@@ -149,7 +147,7 @@ class Validator:
                 if self.last_update > self.tempo + 1:
                     total = sum(self.moving_avg_scores)
                     weights = [score / total for score in self.moving_avg_scores]
-                    bt.logging.info(f"Setting weights: {weights}")
+                    bt.logging.info(f"[blue]Setting weights: {weights}[/blue]")
                     # Update the incentive mechanism on the Bittensor blockchain.
                     result = self.subtensor.set_weights(
                         netuid=self.config.netuid,
