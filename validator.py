@@ -1,4 +1,5 @@
 import os
+import time
 import random
 import argparse
 import traceback
@@ -14,7 +15,9 @@ class Validator:
         self.setup_bittensor_objects()
         self.my_uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
         self.scores = [1.0] * len(self.metagraph.S)
-        self.last_update = self.subtensor.blocks_since_last_update(self.config.netuid, self.my_uid)
+        self.last_update = self.subtensor.blocks_since_last_update(
+            self.config.netuid, self.my_uid
+        )
         self.tempo = self.subtensor.tempo(self.config.netuid)
         self.moving_avg_scores = [1.0] * len(self.metagraph.S)
         self.alpha = 0.1
@@ -23,9 +26,15 @@ class Validator:
         # Set up the configuration parser.
         parser = argparse.ArgumentParser()
         # TODO: Add your custom validator arguments to the parser.
-        parser.add_argument('--custom', default='my_custom_value', help='Adds a custom value to the parser.')
+        parser.add_argument(
+            "--custom",
+            default="my_custom_value",
+            help="Adds a custom value to the parser.",
+        )
         # Adds override arguments for network and netuid.
-        parser.add_argument('--netuid', type=int, default=1, help="The chain subnet uid.")
+        parser.add_argument(
+            "--netuid", type=int, default=1, help="The chain subnet uid."
+        )
         # Adds subtensor specific arguments.
         bt.subtensor.add_args(parser)
         # Adds logging specific arguments.
@@ -41,7 +50,7 @@ class Validator:
                 config.wallet.name,
                 config.wallet.hotkey_str,
                 config.netuid,
-                'validator',
+                "validator",
             )
         )
         # Ensure the logging directory exists.
@@ -51,7 +60,9 @@ class Validator:
     def setup_logging(self):
         # Set up logging.
         bt.logging(config=self.config, logging_dir=self.config.full_path)
-        bt.logging.info(f"Running validator for subnet: {self.config.netuid} on network: {self.config.subtensor.network} with config:")
+        bt.logging.info(
+            f"Running validator for subnet: {self.config.netuid} on network: {self.config.subtensor.network} with config:"
+        )
         bt.logging.info(self.config)
 
     def setup_bittensor_objects(self):
@@ -76,11 +87,15 @@ class Validator:
 
         # Connect the validator to the network.
         if self.wallet.hotkey.ss58_address not in self.metagraph.hotkeys:
-            bt.logging.error(f"\nYour validator: {self.wallet} is not registered to chain connection: {self.subtensor} \nRun 'btcli register' and try again.")
+            bt.logging.error(
+                f"\nYour validator: {self.wallet} is not registered to chain connection: {self.subtensor} \nRun 'btcli register' and try again."
+            )
             exit()
         else:
             # Each validator gets a unique identity (UID) in the network.
-            self.my_subnet_uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
+            self.my_subnet_uid = self.metagraph.hotkeys.index(
+                self.wallet.hotkey.ss58_address
+            )
             bt.logging.info(f"Running validator on uid: {self.my_subnet_uid}")
 
         # Set up initial scoring weights for validation.
@@ -98,24 +113,36 @@ class Validator:
 
                 # Broadcast a query to all miners on the network.
                 responses = self.dendrite.query(
-                    axons=self.metagraph.axons,
-                    synapse=synapse,
-                    timeout=12
+                    axons=self.metagraph.axons, synapse=synapse, timeout=12
                 )
                 bt.logging.info(f"sending input {synapse.dummy_input}")
                 if responses:
-                    responses = [response.dummy_output for response in responses if response is not None]
+                    responses = [
+                        response.dummy_output
+                        for response in responses
+                        if response is not None
+                    ]
 
                 # Log the results.
                 bt.logging.info(f"Received dummy responses: {responses}")
 
+                # Adjust the length of moving_avg_scores to match the number of responses
+                if len(self.moving_avg_scores) < len(responses):
+                    self.moving_avg_scores.extend(
+                        [1] * (len(responses) - len(self.moving_avg_scores))
+                    )
+
                 # Adjust the scores based on responses from miners and update moving average.
                 for i, resp_i in enumerate(responses):
                     current_score = 1 if resp_i == synapse.dummy_input * 2 else 0
-                    self.moving_avg_scores[i] = (1 - self.alpha) * self.moving_avg_scores[i] + self.alpha * current_score
+                    self.moving_avg_scores[i] = (
+                        1 - self.alpha
+                    ) * self.moving_avg_scores[i] + self.alpha * current_score
 
                 bt.logging.info(f"Moving Average Scores: {self.moving_avg_scores}")
-                self.last_update = self.subtensor.blocks_since_last_update(self.config.netuid, self.my_uid)
+                self.last_update = self.subtensor.blocks_since_last_update(
+                    self.config.netuid, self.my_uid
+                )
 
                 # set weights once every tempo + 1
                 if self.last_update > self.tempo + 1:
@@ -128,9 +155,10 @@ class Validator:
                         wallet=self.wallet,
                         uids=self.metagraph.uids,
                         weights=weights,
-                        wait_for_inclusion=True
+                        wait_for_inclusion=True,
                     )
                     self.metagraph.sync()
+                time.sleep(5)
 
             except RuntimeError as e:
                 bt.logging.error(e)
@@ -139,6 +167,7 @@ class Validator:
             except KeyboardInterrupt:
                 bt.logging.success("Keyboard interrupt detected. Exiting validator.")
                 exit()
+
 
 # Run the validator.
 if __name__ == "__main__":
