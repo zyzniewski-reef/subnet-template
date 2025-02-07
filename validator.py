@@ -157,7 +157,7 @@ class Validator:
                         wait_for_inclusion=True,
                     )
                     self.metagraph.sync()
-                time.sleep(5)
+                time.sleep(0.5)
 
             except RuntimeError as e:
                 bt.logging.error(e)
