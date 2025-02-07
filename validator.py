@@ -149,13 +149,14 @@ class Validator:
                     weights = [score / total for score in self.moving_avg_scores]
                     bt.logging.info(f"[blue]Setting weights: {weights}[/blue]")
                     # Update the incentive mechanism on the Bittensor blockchain.
-                    result = self.subtensor.set_weights(
+                    success, message = self.subtensor.set_weights(
                         netuid=self.config.netuid,
                         wallet=self.wallet,
                         uids=self.metagraph.uids,
                         weights=weights,
                         wait_for_inclusion=True,
                     )
+                    bt.logging.info(f"Set Weights Result: {success} {message}")
                     self.metagraph.sync()
                 time.sleep(0.5)
 
