@@ -146,7 +146,7 @@ class Miner:
                     )
                     bt.logging.info(log)
                 step += 1
-                time.sleep(1)
+                time.sleep(0.1)
 
             except KeyboardInterrupt:
                 self.axon.stop()
